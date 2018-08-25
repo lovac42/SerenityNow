@@ -1,1 +1,1 @@
-import serenityNow
+from . import serenityNow
