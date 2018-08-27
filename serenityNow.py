@@ -2,7 +2,8 @@
 # Copyright: (C) 2018 Lovac42
 # Support: https://github.com/lovac42/SerenityNow
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
-# Version: 0.0.1
+# Version: 0.0.2
+
 
 #configs:
 LOADBAL_DAYS = 3  #Study n days ahead
@@ -17,7 +18,7 @@ from aqt.utils import showWarning, showText
 import random
 
 
-def fillRev(self, _old):
+def fillRev(self, _old): #copied and modded from Anki-2.0.52 src
     if self._revQueue:
         return True
     if not self.revCount:
@@ -83,15 +84,12 @@ did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
 
 
 #Decrease new card limit for each forgotten review card
-def answerCard(self, ease):
-    c = self.card
-    if c.type==0 or c.queue==0: return #new card
-    if ease == 1 and c.id not in self._answeredIds:
-        mw.col.sched._updateStats(c, 'new')
+def rescheduleLapse(self, card):
+    self._updateStats(card, 'new')
 
 #Ensure new cards comes last after review cards
 def timeForNewCard(self, _old): return False
 
 Scheduler._timeForNewCard = wrap(Scheduler._timeForNewCard, timeForNewCard, 'around')
 Scheduler._fillRev = wrap(Scheduler._fillRev, fillRev, 'around')
-Reviewer._answerCard = wrap(Reviewer._answerCard, answerCard, 'before')
+Scheduler._rescheduleLapse = wrap(Scheduler._rescheduleLapse, rescheduleLapse, 'after')
