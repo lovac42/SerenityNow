@@ -2,7 +2,7 @@
 # Copyright: (C) 2018 Lovac42
 # Support: https://github.com/lovac42/SerenityNow
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
-# Version: 0.0.2
+# Version: 0.0.1
 
 
 #configs:
@@ -84,12 +84,15 @@ did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
 
 
 #Decrease new card limit for each forgotten review card
-def rescheduleLapse(self, card):
-    self._updateStats(card, 'new')
+def answerCard(self, ease):
+    c = self.card
+    if c.type==0 or c.queue==0: return #new card
+    if ease == 1 and c.id not in self._answeredIds:
+        mw.col.sched._updateStats(c, 'new')
 
 #Ensure new cards comes last after review cards
 def timeForNewCard(self, _old): return False
 
 Scheduler._timeForNewCard = wrap(Scheduler._timeForNewCard, timeForNewCard, 'around')
 Scheduler._fillRev = wrap(Scheduler._fillRev, fillRev, 'around')
-Scheduler._rescheduleLapse = wrap(Scheduler._rescheduleLapse, rescheduleLapse, 'after')
+Reviewer._answerCard = wrap(Reviewer._answerCard, answerCard, 'before')
