@@ -13,7 +13,6 @@ LOADBAL_IVL = 50  #Nothing less than x ivl
 from aqt import mw
 from anki.hooks import wrap
 from anki.sched import Scheduler
-from aqt.reviewer import Reviewer
 from aqt.utils import showWarning, showText
 import random
 
@@ -83,16 +82,4 @@ did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
         return self._fillRev()
 
 
-#Decrease new card limit for each forgotten review card
-def answerCard(self, ease):
-    c = self.card
-    if c.type==0 or c.queue==0: return #new card
-    if ease == 1 and c.id not in self._answeredIds:
-        mw.col.sched._updateStats(c, 'new')
-
-#Ensure new cards comes last after review cards
-def timeForNewCard(self, _old): return False
-
-Scheduler._timeForNewCard = wrap(Scheduler._timeForNewCard, timeForNewCard, 'around')
 Scheduler._fillRev = wrap(Scheduler._fillRev, fillRev, 'around')
-Reviewer._answerCard = wrap(Reviewer._answerCard, answerCard, 'before')
