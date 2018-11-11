@@ -2,12 +2,18 @@
 # Copyright: (C) 2018 Lovac42
 # Support: https://github.com/lovac42/SerenityNow
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
-# Version: 0.0.2
+# Version: 0.0.3
 
 
-#configs:
-LOADBAL_DAYS = 3  #Study n days ahead
-LOADBAL_IVL = 50  #Nothing less than x ivl
+
+# == User Config =========================================
+
+LOADBAL_DAYS  = 0    #Study n days ahead, 0 to disable.
+LOADBAL_IVL   = 365  #Nothing less than x ivl
+MAX_PREREVIEW = 5    #Cap pre-reviews
+
+# == End Config ==========================================
+##########################################################
 
 
 from aqt import mw
@@ -51,7 +57,8 @@ did = ? and queue = 2 and due <= ? limit ?""", did, self.today-2, qsize))
                     # Study ahead to load balance reviews
                     # Shouldn't affect too much with a high enough ivl
                     qsize=lim-len(self._revQueue)
-                    if qsize > 0: # Not likely to happend for lazy slackers ;)
+                    if LOADBAL_DAYS and qsize > 0: # Not likely to happend for lazy slackers ;)
+                        qsize=min(MAX_PREREVIEW,qsize)
                         self._revQueue.extend(self.col.db.list("""
 select id from cards where
 did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
