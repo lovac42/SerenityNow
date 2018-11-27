@@ -2,8 +2,7 @@
 # Copyright: (C) 2018 Lovac42
 # Support: https://github.com/lovac42/SerenityNow
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
-# Version: 0.0.3
-
+# Version: 0.0.4
 
 
 # == User Config =========================================
@@ -24,6 +23,12 @@ import random
 
 
 def fillRev(self, _old): #copied and modded from Anki-2.0.52 src
+    qc = self.col.conf
+    if not qc.get("serenityNow", False):
+        return _old(self)
+    # print('using serenityNow')
+
+
     if self._revQueue:
         return True
     if not self.revCount:
@@ -90,3 +95,54 @@ did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
 
 
 Scheduler._fillRev = wrap(Scheduler._fillRev, fillRev, 'around')
+
+
+##################################################
+#
+#  GUI stuff, adds preference menu options
+#
+#################################################
+import aqt
+import aqt.preferences
+from aqt.qt import *
+
+from anki import version
+ANKI21 = version.startswith("2.1.")
+if ANKI21:
+    from PyQt5 import QtCore, QtGui, QtWidgets
+else:
+    from PyQt4 import QtCore, QtGui as QtWidgets
+
+try:
+    _fromUtf8 = QtCore.QString.fromUtf8
+except AttributeError:
+    def _fromUtf8(s):
+        return s
+
+def setupUi(self, Preferences):
+    r=self.gridLayout_4.rowCount()
+    self.serenityNow = QtWidgets.QCheckBox(self.tab_1)
+    self.serenityNow.setObjectName(_fromUtf8("Serenity Now"))
+    self.serenityNow.setText(_('Serenity Now! Prioritize Today, Yest, OD'))
+    self.serenityNow.toggled.connect(lambda:toggle(self))
+    self.gridLayout_4.addWidget(self.serenityNow, r, 0, 1, 3)
+
+def __init__(self, mw):
+    qc = self.mw.col.conf
+    cb=qc.get("serenityNow", 0)
+    self.form.serenityNow.setCheckState(cb)
+
+def accept(self):
+    qc = self.mw.col.conf
+    qc['serenityNow']=self.form.serenityNow.checkState()
+
+def toggle(self):
+    checked=not self.serenityNow.checkState()==0
+    if checked:
+        try:
+            self.hoochieMama.setCheckState(0)
+        except: pass
+
+aqt.forms.preferences.Ui_Preferences.setupUi = wrap(aqt.forms.preferences.Ui_Preferences.setupUi, setupUi, "after")
+aqt.preferences.Preferences.__init__ = wrap(aqt.preferences.Preferences.__init__, __init__, "after")
+aqt.preferences.Preferences.accept = wrap(aqt.preferences.Preferences.accept, accept, "before")
