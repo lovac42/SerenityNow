@@ -2,7 +2,7 @@
 # Copyright: (C) 2018 Lovac42
 # Support: https://github.com/lovac42/SerenityNow
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
-# Version: 0.0.4
+# Version: 0.0.5
 
 
 # == User Config =========================================
@@ -23,16 +23,25 @@ import random
 
 
 def fillRev(self, _old): #copied and modded from Anki-2.0.52 src
+    if self._revQueue:
+        return True
+    if not self.revCount:
+        return False
+
+
+    # This seem like old comments left behind, and does not affect current versions.
+    # Remove these lines for testing
+    if self.col.decks.get(self.col.decks.selected(),False)['dyn']:
+        # dynamic decks need due order preserved
+        return _old(self)
+
+
     qc = self.col.conf
     if not qc.get("serenityNow", False):
         return _old(self)
     # print('using serenityNow')
 
 
-    if self._revQueue:
-        return True
-    if not self.revCount:
-        return False
     while self._revDids:
         did = self._revDids[0]
         lim = min(self.queueLimit, self._deckRevLimit(did))
@@ -45,18 +54,18 @@ did = ? and queue = 2 and due = ? limit ?""", did, self.today, lim)
 
 
             #Avoid using a loop in case we run out of reviews
-            qsize=lim-len(self._revQueue)
-            if qsize > 0:
+            more=lim-len(self._revQueue)
+            if more:
                 self._revQueue.extend(self.col.db.list("""
 select id from cards where
-did = ? and queue = 2 and due = ? limit ?""", did, self.today-1, qsize))
+did = ? and queue = 2 and due = ? limit ?""", did, self.today-1, more))
 
 
-                qsize=lim-len(self._revQueue)
-                if qsize > 0:
+                more=lim-len(self._revQueue)
+                if more:
                     self._revQueue.extend(self.col.db.list("""
 select id from cards where
-did = ? and queue = 2 and due <= ? limit ?""", did, self.today-2, qsize))
+did = ? and queue = 2 and due <= ? limit ?""", did, self.today-2, more))
 
 
                     # Study ahead to load balance reviews
@@ -71,15 +80,10 @@ did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
 
 
             if self._revQueue:
-                # ordering
-                if self.col.decks.get(did)['dyn']:
-                    # dynamic decks need due order preserved
-                    self._revQueue.reverse()
-                else:
-                    # random order for regular reviews
-                    r = random.Random()
-                    r.seed(self.today)
-                    r.shuffle(self._revQueue)
+                # random order for regular reviews
+                r = random.Random()
+                r.seed(self.today)
+                r.shuffle(self._revQueue)
                 # is the current did empty?
                 if len(self._revQueue) < lim:
                     self._revDids.pop(0)
