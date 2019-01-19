@@ -2,17 +2,7 @@
 # Copyright: (C) 2018 Lovac42
 # Support: https://github.com/lovac42/SerenityNow
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
-# Version: 0.0.5
-
-
-# == User Config =========================================
-
-LOADBAL_DAYS  = 0    #Study n days ahead, 0 to disable.
-LOADBAL_IVL   = 365  #Nothing less than x ivl
-MAX_PREREVIEW = 5    #Cap pre-reviews
-
-# == End Config ==========================================
-##########################################################
+# Version: 0.0.6
 
 
 from aqt import mw
@@ -22,11 +12,24 @@ from aqt.utils import showWarning, showText
 import random
 
 
-def fillRev(self, _old): #copied and modded from Anki-2.0.52 src
+#Turn this on if you are having problems.
+def debugInfo(msg):
+    # print(msg) #console
+    # showText(msg) #Windows
+    return
+
+
+
+#FROM: Anki sched v1 (src 2.0.52)
+#MOD: added priority
+def fillRev(self, _old):
     if self._revQueue:
         return True
     if not self.revCount:
         return False
+
+    if self.col.sched.name=="std2":
+        return _old(self)
 
 
     # This seem like old comments left behind, and does not affect current versions.
@@ -37,9 +40,9 @@ def fillRev(self, _old): #copied and modded from Anki-2.0.52 src
 
 
     qc = self.col.conf
-    if not qc.get("serenityNow", False):
+    if not qc.get("serenityNow",0) or qc.get("hoochieMama",0):
         return _old(self)
-    # print('using serenityNow')
+    debugInfo('using serenityNow')
 
 
     while self._revDids:
@@ -50,34 +53,20 @@ def fillRev(self, _old): #copied and modded from Anki-2.0.52 src
             # fill the queue with the current did
             self._revQueue = self.col.db.list("""
 select id from cards where
-did = ? and queue = 2 and due = ? limit ?""", did, self.today, lim)
+did = ? and queue = 2 and due = ? 
+limit ?""", did, self.today, lim)
 
-
-            #Avoid using a loop in case we run out of reviews
-            more=lim-len(self._revQueue)
-            if more:
-                self._revQueue.extend(self.col.db.list("""
+            if not self._revQueue:
+                self._revQueue = self.col.db.list("""
 select id from cards where
-did = ? and queue = 2 and due = ? limit ?""", did, self.today-1, more))
+did = ? and queue = 2 and due = ? 
+limit ?""", did, self.today-1 , lim)
 
-
-                more=lim-len(self._revQueue)
-                if more:
-                    self._revQueue.extend(self.col.db.list("""
+            if not self._revQueue:
+                self._revQueue = self.col.db.list("""
 select id from cards where
-did = ? and queue = 2 and due <= ? limit ?""", did, self.today-2, more))
-
-
-                    # Study ahead to load balance reviews
-                    # Shouldn't affect too much with a high enough ivl
-                    qsize=lim-len(self._revQueue)
-                    if LOADBAL_DAYS and qsize > 0: # Not likely to happend for lazy slackers ;)
-                        qsize=min(MAX_PREREVIEW,qsize)
-                        self._revQueue.extend(self.col.db.list("""
-select id from cards where
-did = ? and queue = 2 and due <= ? and ivl >= ? limit ?""",
-            did, self.today + LOADBAL_DAYS, LOADBAL_IVL, qsize))
-
+did = ? and queue = 2 and due <= ? 
+limit ?""", did, self.today-2 , lim)
 
             if self._revQueue:
                 # random order for regular reviews
@@ -117,36 +106,47 @@ if ANKI21:
 else:
     from PyQt4 import QtCore, QtGui as QtWidgets
 
-try:
-    _fromUtf8 = QtCore.QString.fromUtf8
-except AttributeError:
-    def _fromUtf8(s):
-        return s
 
 def setupUi(self, Preferences):
-    r=self.gridLayout_4.rowCount()
-    self.serenityNow = QtWidgets.QCheckBox(self.tab_1)
-    self.serenityNow.setObjectName(_fromUtf8("Serenity Now"))
-    self.serenityNow.setText(_('Serenity Now! Prioritize Today, Yest, OD'))
-    self.serenityNow.toggled.connect(lambda:toggle(self))
-    self.gridLayout_4.addWidget(self.serenityNow, r, 0, 1, 3)
+    try:
+        grid=self.lrnStageGLayout
+    except AttributeError:
+        self.lrnStage=QtWidgets.QWidget()
+        self.tabWidget.addTab(self.lrnStage, "Muffins")
+        self.lrnStageGLayout=QtWidgets.QGridLayout()
+        self.lrnStageVLayout=QtWidgets.QVBoxLayout(self.lrnStage)
+        self.lrnStageVLayout.addLayout(self.lrnStageGLayout)
+        spacerItem=QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.lrnStageVLayout.addItem(spacerItem)
 
-def __init__(self, mw):
+    r=self.lrnStageGLayout.rowCount()
+    self.serenityNow = QtWidgets.QCheckBox(self.lrnStage)
+    self.serenityNow.setText(_('Serenity Now! Prioritize Today, Yest, OD'))
+    self.lrnStageGLayout.addWidget(self.serenityNow, r, 0, 1, 3)
+    self.serenityNow.toggled.connect(lambda:toggle(self))
+
+
+def load(self, mw):
     qc = self.mw.col.conf
     cb=qc.get("serenityNow", 0)
     self.form.serenityNow.setCheckState(cb)
+    toggle(self.form)
 
-def accept(self):
+
+def save(self):
+    toggle(self.form)
     qc = self.mw.col.conf
     qc['serenityNow']=self.form.serenityNow.checkState()
 
+
 def toggle(self):
-    checked=not self.serenityNow.checkState()==0
+    checked=self.serenityNow.checkState()
     if checked:
         try:
             self.hoochieMama.setCheckState(0)
         except: pass
 
+
 aqt.forms.preferences.Ui_Preferences.setupUi = wrap(aqt.forms.preferences.Ui_Preferences.setupUi, setupUi, "after")
-aqt.preferences.Preferences.__init__ = wrap(aqt.preferences.Preferences.__init__, __init__, "after")
-aqt.preferences.Preferences.accept = wrap(aqt.preferences.Preferences.accept, accept, "before")
+aqt.preferences.Preferences.__init__ = wrap(aqt.preferences.Preferences.__init__, load, "after")
+aqt.preferences.Preferences.accept = wrap(aqt.preferences.Preferences.accept, save, "before")
